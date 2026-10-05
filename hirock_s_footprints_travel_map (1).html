@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hirock's Footprints - বাংলাদেশ ভ্রমণ ম্যাপ</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts (Hind Siliguri for Bengali) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- html2canvas and jsPDF libraries for export -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        emerald: {
+                            900: '#022c22',
+                            800: '#064e3b',
+                            700: '#047857',
+                            600: '#059669',
+                            500: '#10b981',
+                            100: '#d1fae5',
+                            50: '#f0fdf4',
+                        },
+                        cardBg: '#fbf9f4',
+                    },
+                    fontFamily: {
+                        sans: ['Hind Siliguri', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            font-family: 'Hind Siliguri', sans-serif;
+            background-color: #f3f4f6;
+        }
+        .map-district-path {
+            transition: fill 0.25s ease, stroke 0.25s ease, transform 0.2s ease;
+            cursor: pointer;
+            stroke: #ffffff;
+            stroke-width: 0.8;
+            stroke-linejoin: round;
+            stroke-linecap: round;
+        }
+        .map-district-path:hover {
+            fill-opacity: 0.85;
+            stroke: #047857;
+            stroke-width: 1.5;
+        }
+        .district-selected {
+            fill: #006a4e !important;
+        }
+        .district-unselected {
+            fill: #e2e1d9 !important;
+        }
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #059669;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body class="text-gray-800 min-h-screen flex flex-col justify-between">
+
+    <header class="bg-white border-b border-gray-200 sticky top-0 z-50 shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center space-x-3 space-x-reverse">
+                <div class="bg-emerald-700 text-white p-2 rounded-xl flex items-center justify-center shadow-sm">
+                    <i class="fa-solid fa-shoe-prints text-xl"></i>
+                </div>
+                <div>
+                    <span class="text-xl font-bold text-emerald-800 tracking-wide">Hirock's Footprints</span>
+                    <span class="text-xs block text-gray-500 -mt-1">বাংলাদেশ ভ্রমণ ম্যাপ</span>
+                </div>
+            </div>
+            <div>
+                <a href="#selector-section" class="bg-emerald-700 hover:bg-emerald-800 text-white px-4 py-2 rounded-full text-sm font-semibold transition shadow-sm inline-flex items-center gap-2">
+                    <i class="fa-solid fa-location-dot"></i> জেলা নির্বাচন
+                </a>
+            </div>
+        </div>
+    </header>
+
+    <div class="bg-gradient-to-r from-emerald-900 via-emerald-800 to-emerald-900 text-white py-10 px-4 text-center relative overflow-hidden">
+        <div class="absolute inset-0 opacity-10 bg-[radial-gradient(#fff_1px,transparent_1px)] [background-size:16px_16px]"></div>
+        <div class="relative z-10 max-w-3xl mx-auto">
+            <span class="bg-emerald-700/80 text-emerald-100 text-xs px-3.5 py-1 rounded-full uppercase tracking-wider font-semibold border border-emerald-500/30">Hirock's Travel Tracker</span>
+            <h1 class="text-3xl sm:text-5xl font-extrabold mt-3 mb-2 tracking-tight">বাংলাদেশের কতটুকু ঘুরে দেখেছেন?</h1>
+            <p class="text-emerald-100 text-sm sm:text-base max-w-xl mx-auto">আপনার ভ্রমণ করা জেলাগুলো সিলেক্ট করে মুহূর্তের মধ্যেই তৈরি করে নিন আপনার নিজস্ব ভ্রমণ ম্যাপ এবং ডাউনলোড করুন HD কার্ড!</p>
+        </div>
+    </div>
+
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-grow">
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+            
+            <!-- Left Side Controls Panel -->
+            <div id="selector-section" class="lg:col-span-7 bg-white p-5 sm:p-6 rounded-2xl shadow-sm border border-gray-100 space-y-6">
+                
+                <!-- Search & Actions -->
+                <div class="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-4 pb-4 border-b border-gray-100">
+                    <div>
+                        <h2 class="text-xl font-bold text-gray-800">জেলা বাছাই করুন</h2>
+                        <p class="text-xs text-gray-500">যেসব জেলা ঘুরেছেন সেগুলোতে ক্লিক করে টিক দিন</p>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <button id="btn-select-all" class="text-xs bg-emerald-50 hover:bg-emerald-100 text-emerald-700 px-3.5 py-2 rounded-xl font-semibold transition">
+                            সব সিলেক্ট
+                        </button>
+                        <button id="btn-clear-all" class="text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 px-3.5 py-2 rounded-xl font-semibold transition">
+                            রিসেট
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Search Input -->
+                <div class="relative">
+                    <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400"></i>
+                    <input type="text" id="district-search" placeholder="জেলার নাম খুঁজুন (যেমন: কক্সবাজার, সিলেট)..." class="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none text-sm transition">
+                </div>
+
+                <!-- User Customization Card Input -->
+                <div class="bg-emerald-50/70 p-4 rounded-xl border border-emerald-100 space-y-3">
+                    <h3 class="text-sm font-bold text-emerald-900 flex items-center gap-2">
+                        <i class="fa-solid fa-user-pen"></i> প্রোফাইল কাস্টমাইজ করুন
+                    </h3>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-600 mb-1">কার্ড টাইটেল</label>
+                            <input type="text" id="card-title-input" value="Hirock's Footprints" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 outline-none bg-white">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-600 mb-1">নিজের ছবি আপলোড</label>
+                            <input type="file" id="profile-upload" accept="image/*" class="block w-full text-xs text-gray-500 file:mr-2 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-emerald-700 file:text-white hover:file:bg-emerald-800 cursor-pointer">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Division Wise District Buttons -->
+                <div id="divisions-container" class="space-y-6 max-h-[620px] overflow-y-auto pr-2">
+                    <!-- Injected via JavaScript -->
+                </div>
+            </div>
+
+            <div class="lg:col-span-5 sticky top-20 space-y-4">
+                
+                <div class="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex justify-between items-center">
+                    <h2 class="font-bold text-gray-800 flex items-center gap-2">
+                        <i class="fa-solid fa-map-location-dot text-emerald-600"></i> কার্ড প্রিভিউ
+                    </h2>
+                    <span class="text-xs bg-emerald-100 text-emerald-800 font-bold px-3 py-1 rounded-full">HD রেন্ডার</span>
+                </div>
+
+                <!-- Printable Travel Card Layout -->
+                <div id="export-card" class="bg-[#fbf9f4] p-6 rounded-3xl shadow-md border border-[#e5e0d4] relative overflow-hidden flex flex-col justify-between" style="min-height: 620px;">
+                    
+                    <!-- Top Section -->
+                    <div>
+                        <div class="flex items-center justify-between mb-3">
+                            <div class="relative">
+                                <div class="w-16 h-16 rounded-2xl overflow-hidden border-2 border-emerald-600 p-0.5 bg-white shadow-sm flex items-center justify-center">
+                                    <img id="card-user-img" src="https://placehold.co/150x150/047857/ffffff?text=Hirock" alt="Profile" class="w-full h-full object-cover rounded-xl">
+                                </div>
+                            </div>
+
+                            <div class="text-right">
+                                <div class="text-4xl font-black text-emerald-800 tracking-tight leading-none">
+                                    <span id="stat-districts-count">২৪</span><span class="text-xl text-gray-400 font-normal">/৬৪</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div>
+                            <span class="text-[11px] text-gray-500 uppercase tracking-widest font-semibold">বাংলাদেশ ভ্রমণ ম্যাপ</span>
+                            <h2 id="card-display-title" class="text-2xl font-black text-gray-900 tracking-tight leading-tight">Hirock's Footprints</h2>
+                        </div>
+                    </div>
+
+                    <!-- Geographically Accurate SVG Bangladesh Map -->
+                    <div class="my-2 flex justify-center items-center py-1">
+                        <svg id="bangladesh-svg" viewBox="0 0 600 750" class="w-full max-w-[350px] h-auto drop-shadow-md">
+                            <!-- Geographic District SVG Paths dynamically inserted here -->
+                        </svg>
+                    </div>
+
+                    <!-- Bottom Summary Stats -->
+                    <div class="space-y-2.5 pt-3 border-t border-gray-200/80">
+                        <div class="w-full bg-gray-200/80 h-2.5 rounded-full overflow-hidden">
+                            <div id="card-progress-bar" class="bg-emerald-700 h-full rounded-full transition-all duration-500" style="width: 38%;"></div>
+                        </div>
+
+                        <div class="flex justify-between items-center text-xs font-bold text-gray-700">
+                            <div>
+                                <span id="stat-percentage">৩৮%</span> বাংলাদেশ ঘোরা হয়েছে
+                            </div>
+                            <div class="text-gray-500 font-medium">
+                                <span id="stat-divisions-text">২৪টি জেলা · ৮টির মধ্যে ৭টি বিভাগ</span>
+                            </div>
+                        </div>
+
+                        <!-- Footer Branding -->
+                        <div class="pt-1.5 flex items-center justify-between text-[10px] text-gray-400 font-medium">
+                            <div class="flex items-center gap-1.5 text-emerald-800 font-bold">
+                                <i class="fa-solid fa-shoe-prints"></i>
+                                <span>Hirock's Footprints</span>
+                            </div>
+                            <span class="tracking-wide">hirock.unseenbangladesh.com</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Export Action Buttons -->
+                <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 space-y-3">
+                    <h3 class="text-xs font-bold text-gray-600 uppercase tracking-wider">ডাউনলোড অপশন</h3>
+                    <div class="grid grid-cols-2 gap-2">
+                        <button id="download-png" class="bg-emerald-800 hover:bg-emerald-900 text-white py-2.5 px-4 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 shadow-sm">
+                            <i class="fa-solid fa-file-image"></i> PNG ইমেজ
+                        </button>
+                        <button id="download-jpg" class="bg-emerald-700 hover:bg-emerald-800 text-white py-2.5 px-4 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 shadow-sm">
+                            <i class="fa-solid fa-image"></i> JPG ইমেজ
+                        </button>
+                    </div>
+                    <button id="download-pdf" class="w-full bg-slate-800 hover:bg-slate-900 text-white py-2.5 px-4 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 shadow-sm">
+                        <i class="fa-solid fa-file-pdf"></i> PDF ডকুমেন্ট
+                    </button>
+                </div>
+
+            </div>
+        </div>
+    </main>
+
+    <footer class="bg-white border-t border-gray-200 mt-12 py-6 text-center text-xs text-gray-500">
+        <p>© 2026 Hirock's Footprints. তৈরি করা হয়েছে সুন্দর ভ্রমণ স্মৃতি প্রদর্শনের জন্য।</p>
+    </footer>
+
+    <script>
+        // Geographically structured district data with SVG Path definitions
+        const BD_DATA = {
+            "ঢাকা বিভাগ": {
+                id: "dhaka_div",
+                districts: [
+                    { name: "ঢাকা", id: "dhaka", cx: 300, cy: 390, d: "M280,370 L315,365 L325,400 L290,410 Z" },
+                    { name: "গাজীপুর", id: "gazipur", cx: 310, cy: 345, d: "M290,325 L330,320 L335,360 L295,365 Z" },
+                    { name: "নারায়ণগঞ্জ", id: "narayanganj", cx: 330, cy: 410, d: "M315,395 L345,390 L350,425 L320,430 Z" },
+                    { name: "মানিকগঞ্জ", id: "manikganj", cx: 255, cy: 370, d: "M235,350 L275,350 L280,390 L240,390 Z" },
+                    { name: "মুন্সীগঞ্জ", id: "munshiganj", cx: 310, cy: 435, d: "M295,420 L325,415 L330,450 L300,455 Z" },
+                    { name: "নরসিংদী", id: "narsingdi", cx: 345, cy: 360, d: "M330,340 L360,335 L365,380 L335,380 Z" },
+                    { name: "ফরিদপুর", id: "faridpur", cx: 235, cy: 420, d: "M215,395 L255,395 L260,445 L220,440 Z" },
+                    { name: "গোপালগঞ্জ", id: "gopalganj", cx: 230, cy: 485, d: "M210,460 L250,460 L250,510 L210,505 Z" },
+                    { name: "মাদারীপুর", id: "madaripur", cx: 270, cy: 465, d: "M255,445 L285,445 L285,485 L255,485 Z" },
+                    { name: "রাজবাড়ী", id: "rajbari", cx: 205, cy: 380, d: "M185,365 L225,365 L230,395 L190,395 Z" },
+                    { name: "শরীয়তপুর", id: "shariatpur", cx: 295, cy: 470, d: "M280,455 L310,455 L310,490 L280,485 Z" },
+                    { name: "টাঙ্গাইল", id: "tangail", cx: 270, cy: 295, d: "M250,265 L290,265 L295,325 L255,325 Z" },
+                    { name: "কিশোরগঞ্জ", id: "kishoreganj", cx: 365, cy: 300, d: "M340,275 L385,275 L390,325 L345,325 Z" }
+                ]
+            },
+            "চট্টগ্রাম বিভাগ": {
+                id: "chittagong_div",
+                districts: [
+                    { name: "চট্টগ্রাম", id: "chittagong", cx: 440, cy: 520, d: "M410,470 L460,470 L480,570 L430,580 Z" },
+                    { name: "কক্সবাজার", id: "coxsbazar", cx: 465, cy: 640, d: "M445,590 L485,590 L480,710 L450,690 Z" },
+                    { name: "কুমিল্লা", id: "comilla", cx: 390, cy: 430, d: "M365,400 L410,400 L415,460 L370,460 Z" },
+                    { name: "বান্দরবান", id: "bandarban", cx: 490, cy: 560, d: "M470,510 L515,510 L510,620 L465,600 Z" },
+                    { name: "রাঙ্গামাটি", id: "rangamati", cx: 480, cy: 440, d: "M455,370 L505,370 L510,500 L460,490 Z" },
+                    { name: "খাগড়াছড়ি", id: "khagrachhari", cx: 450, cy: 355, d: "M430,325 L470,325 L475,385 L435,385 Z" },
+                    { name: "নোয়াখালী", id: "noakhali", cx: 375, cy: 500, d: "M350,475 L395,475 L405,535 L360,535 Z" },
+                    { name: "ফেনী", id: "feni", cx: 410, cy: 475, d: "M395,460 L425,460 L425,495 L395,495 Z" },
+                    { name: "ব্রাহ্মণবাড়িয়া", id: "brahmanbaria", cx: 385, cy: 355, d: "M365,330 L405,330 L405,385 L365,385 Z" },
+                    { name: "চাঁদপুর", id: "chandpur", cx: 345, cy: 475, d: "M325,455 L360,455 L360,495 L325,490 Z" },
+                    { name: "লক্ষ্মীপুর", id: "lakshmipur", cx: 345, cy: 515, d: "M330,495 L365,495 L365,540 L330,535 Z" }
+                ]
+            },
+            "সিলেট বিভাগ": {
+                id: "sylhet_div",
+                districts: [
+                    { name: "সিলেট", id: "sylhet", cx: 455, cy: 220, d: "M420,180 L485,180 L495,250 L430,250 Z" },
+                    { name: "মৌলভীবাজার", id: "moulvibazar", cx: 445, cy: 285, d: "M420,255 L475,255 L470,310 L415,310 Z" },
+                    { name: "হবিগঞ্জ", id: "habiganj", cx: 405, cy: 295, d: "M385,265 L420,265 L415,325 L380,325 Z" },
+                    { name: "সুনামগঞ্জ", id: "sunamganj", cx: 395, cy: 210, d: "M365,180 L425,180 L425,240 L365,240 Z" }
+                ]
+            },
+            "রাজশাহী বিভাগ": {
+                id: "rajshahi_div",
+                districts: [
+                    { name: "রাজশাহী", id: "rajshahi", cx: 130, cy: 270, d: "M105,250 L155,250 L155,295 L105,290 Z" },
+                    { name: "বগুড়া", id: "bogra", cx: 225, cy: 220, d: "M200,195 L250,195 L250,245 L200,245 Z" },
+                    { name: "পাবনা", id: "pabna", cx: 200, cy: 310, d: "M175,285 L225,285 L225,330 L175,330 Z" },
+                    { name: "সিরাজগঞ্জ", id: "sirajganj", cx: 235, cy: 275, d: "M215,245 L255,245 L255,305 L215,305 Z" },
+                    { name: "নাটোর", id: "natore", cx: 170, cy: 275, d: "M150,255 L190,255 L190,295 L150,295 Z" },
+                    { name: "নওগাঁ", id: "naogaon", cx: 155, cy: 210, d: "M130,180 L180,180 L180,240 L130,240 Z" },
+                    { name: "জয়পুরহাট", id: "joypurhat", cx: 190, cy: 175, d: "M170,155 L210,155 L210,190 L170,190 Z" },
+                    { name: "চাঁপাইনবাবগঞ্জ", id: "chapai", cx: 90, cy: 240, d: "M65,215 L110,215 L110,265 L65,265 Z" }
+                ]
+            },
+            "খুলনা বিভাগ": {
+                id: "khulna_div",
+                districts: [
+                    { name: "খুলনা", id: "khulna", cx: 200, cy: 550, d: "M180,510 L220,510 L220,600 L180,590 Z" },
+                    { name: "যশোর", id: "jessore", cx: 165, cy: 450, d: "M140,425 L185,425 L185,475 L140,475 Z" },
+                    { name: "সাতক্ষীরা", id: "satkhira", cx: 155, cy: 550, d: "M135,500 L175,500 L175,620 L135,605 Z" },
+                    { name: "বাগেরহাট", id: "bagerhat", cx: 235, cy: 555, d: "M220,515 L255,515 L255,610 L220,600 Z" },
+                    { name: "কুষ্টিয়া", id: "kushtia", cx: 155, cy: 350, d: "M130,330 L180,330 L180,370 L130,365 Z" },
+                    { name: "ঝিনাইদহ", id: "jhenaidah", cx: 160, cy: 395, d: "M140,375 L180,375 L180,415 L140,415 Z" },
+                    { name: "চুয়াডাঙ্গা", id: "chuadanga", cx: 120, cy: 385, d: "M100,365 L135,365 L135,400 L100,400 Z" },
+                    { name: "মেহেরপুর", id: "meherpur", cx: 115, cy: 345, d: "M95,325 L125,325 L125,360 L95,360 Z" },
+                    { name: "মাগুরা", id: "magura", cx: 195, cy: 410, d: "M175,390 L210,390 L210,425 L175,425 Z" },
+                    { name: "নড়াইল", id: "narail", cx: 200, cy: 465, d: "M180,445 L215,445 L215,485 L180,485 Z" }
+                ]
+            },
+            "বরিশাল বিভাগ": {
+                id: "barisal_div",
+                districts: [
+                    { name: "বরিশাল", id: "barisal", cx: 285, cy: 525, d: "M265,500 L305,500 L310,550 L270,550 Z" },
+                    { name: "পটুয়াখালী", id: "patuakhali", cx: 285, cy: 590, d: "M265,560 L305,560 L305,630 L265,620 Z" },
+                    { name: "ভোলা", id: "bhola", cx: 325, cy: 560, d: "M305,525 L340,525 L340,620 L305,610 Z" },
+                    { name: "পিরোজপুর", id: "pirojpur", cx: 250, cy: 535, d: "M235,510 L260,510 L260,560 L235,560 Z" },
+                    { name: "বরগুনা", id: "barguna", cx: 255, cy: 595, d: "M235,570 L265,570 L265,630 L235,620 Z" },
+                    { name: "ঝালকাঠি", id: "jhalokathi", cx: 265, cy: 540, d: "M255,520 L275,520 L275,555 L255,555 Z" }
+                ]
+            },
+            "রংপুর বিভাগ": {
+                id: "rangpur_div",
+                districts: [
+                    { name: "রংপুর", id: "rangpur", cx: 180, cy: 110, d: "M155,85 L200,85 L200,135 L155,135 Z" },
+                    { name: "দিনাজপুর", id: "dinajpur", cx: 120, cy: 110, d: "M95,80 L140,80 L140,140 L95,140 Z" },
+                    { name: "কুড়িগ্রাম", id: "kurigram", cx: 230, cy: 105, d: "M205,80 L250,80 L250,130 L205,130 Z" },
+                    { name: "গাইবান্ধা", id: "gaibandha", cx: 215, cy: 155, d: "M195,135 L230,135 L230,180 L195,180 Z" },
+                    { name: "নীলফামারী", id: "nilphamari", cx: 145, cy: 65, d: "M120,40 L165,40 L165,80 L120,80 Z" },
+                    { name: "পঞ্চগড়", id: "panchagarh", cx: 95, cy: 35, d: "M75,10 L115,10 L115,55 L75,55 Z" },
+                    { name: "ঠাকুরগাঁও", id: "thakurgaon", cx: 85, cy: 80, d: "M65,55 L100,55 L100,105 L65,105 Z" },
+                    { name: "লালমনিরহাট", id: "lalmonirhat", cx: 200, cy: 65, d: "M175,45 L220,45 L220,80 L175,80 Z" }
+                ]
+            },
+            "ময়মনসিংহ বিভাগ": {
+                id: "mymensingh_div",
+                districts: [
+                    { name: "ময়মনসিংহ", id: "mymensingh", cx: 315, cy: 235, d: "M285,210 L340,210 L345,265 L290,265 Z" },
+                    { name: "জামালপুর", id: "jamalpur", cx: 260, cy: 220, d: "M235,195 L280,195 L280,250 L235,245 Z" },
+                    { name: "শেরপুর", id: "sherpur", cx: 280, cy: 185, d: "M260,165 L300,165 L300,200 L260,200 Z" },
+                    { name: "নেত্রকোণা", id: "netrokona", cx: 350, cy: 200, d: "M325,175 L375,175 L380,225 L330,225 Z" }
+                ]
+            }
+        };
+
+        // Default selected districts
+        let selectedDistricts = new Set(["dhaka", "chittagong", "sylhet", "coxsbazar", "rangamati", "bandarban", "gazipur", "tangail", "rajshahi", "bogra", "khulna", "jessore", "barisal"]);
+
+        // Utility: Convert English digits to Bangla Digits
+        function toBanglaNum(num) {
+            const bdDigits = ['০', '১', '২', '৩', '৪', '৫', '৬', '৭', '৮', '৯'];
+            return num.toString().split('').map(d => bdDigits[d] || d).join('');
+        }
+
+        function renderDivisionControls() {
+            const container = document.getElementById('divisions-container');
+            container.innerHTML = '';
+
+            for (const [divName, divData] of Object.entries(BD_DATA)) {
+                const divWrapper = document.createElement('div');
+                divWrapper.className = 'border-b border-gray-100 pb-4 last:border-b-0';
+
+                const totalInDiv = divData.districts.length;
+                const countDivSelected = divData.districts.filter(d => selectedDistricts.has(d.id)).length;
+
+                divWrapper.innerHTML = `
+                    <div class="flex justify-between items-center mb-2.5">
+                        <h4 class="font-bold text-gray-800 text-sm flex items-center gap-2">
+                            <span>${divName}</span>
+                            <span class="text-[11px] font-semibold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-full">
+                                ${toBanglaNum(countDivSelected)}/${toBanglaNum(totalInDiv)}
+                            </span>
+                        </h4>
+                        <button onclick="toggleDivision('${divName}')" class="text-xs text-emerald-700 hover:text-emerald-800 font-bold transition">
+                            ${countDivSelected === totalInDiv ? 'সব বাতিল' : 'সব সিলেক্ট'}
+                        </button>
+                    </div>
+                    <div class="flex flex-wrap gap-1.5">
+                        ${divData.districts.map(d => {
+                            const isSelected = selectedDistricts.has(d.id);
+                            return `
+                                <button data-id="${d.id}" onclick="toggleDistrict('${d.id}')" 
+                                    class="district-pill text-xs px-3 py-1.5 rounded-full font-medium transition border ${
+                                        isSelected 
+                                        ? 'bg-emerald-800 text-white border-emerald-800 shadow-sm' 
+                                        : 'bg-gray-100 text-gray-700 border-gray-200 hover:bg-gray-200'
+                                    }">
+                                    ${d.name}
+                                </button>
+                            `;
+                        }).join('')}
+                    </div>
+                `;
+                container.appendChild(divWrapper);
+            }
+        }
+
+        function renderSvgMap() {
+            const svg = document.getElementById('bangladesh-svg');
+            let svgContent = '';
+
+            for (const [divName, divData] of Object.entries(BD_DATA)) {
+                divData.districts.forEach(d => {
+                    const isSelected = selectedDistricts.has(d.id);
+                    svgContent += `
+                        <g class="district-group" data-id="${d.id}" onclick="toggleDistrict('${d.id}')">
+                            <path d="${d.d}" class="map-district-path ${isSelected ? 'district-selected' : 'district-unselected'}" id="svg-path-${d.id}">
+                                <title>${d.name}</title>
+                            </path>
+                            ${isSelected ? `<circle cx="${d.cx}" cy="${d.cy}" r="3.5" fill="#ef4444" stroke="#ffffff" stroke-width="1" />` : ''}
+                            <text x="${d.cx}" y="${d.cy + (isSelected ? 11 : 3)}" font-size="9" font-family="Hind Siliguri" font-weight="700" text-anchor="middle" fill="${isSelected ? '#0f172a' : '#64748b'}">${d.name}</text>
+                        </g>
+                    `;
+                });
+            }
+
+            svg.innerHTML = svgContent;
+        }
+
+        function updateStats() {
+            const totalDistricts = 64;
+            const count = selectedDistricts.size;
+            const percentage = Math.round((count / totalDistricts) * 100);
+
+            // Calculate Visited Divisions Count
+            let visitedDivisionsCount = 0;
+            for (const [divName, divData] of Object.entries(BD_DATA)) {
+                const hasVisited = divData.districts.some(d => selectedDistricts.has(d.id));
+                if (hasVisited) visitedDivisionsCount++;
+            }
+
+            // Update DOM UI elements
+            document.getElementById('stat-districts-count').innerText = toBanglaNum(count);
+            document.getElementById('stat-percentage').innerText = toBanglaNum(percentage) + '%';
+            document.getElementById('card-progress-bar').style.width = percentage + '%';
+            document.getElementById('stat-divisions-text').innerText = `${toBanglaNum(count)}টি জেলা · ৮টির মধ্যে ${toBanglaNum(visitedDivisionsCount)}টি বিভাগ`;
+
+            // Re-render UI controls and map
+            renderDivisionControls();
+            renderSvgMap();
+        }
+
+        // Toggle single district
+        window.toggleDistrict = function(districtId) {
+            if (selectedDistricts.has(districtId)) {
+                selectedDistricts.delete(districtId);
+            } else {
+                selectedDistricts.add(districtId);
+            }
+            updateStats();
+        };
+
+        // Toggle division
+        window.toggleDivision = function(divName) {
+            const divData = BD_DATA[divName];
+            const allSelected = divData.districts.every(d => selectedDistricts.has(d.id));
+
+            divData.districts.forEach(d => {
+                if (allSelected) {
+                    selectedDistricts.delete(d.id);
+                } else {
+                    selectedDistricts.add(d.id);
+                }
+            });
+
+            updateStats();
+        };
+
+        // Select All / Clear All Button Events
+        document.getElementById('btn-select-all').addEventListener('click', () => {
+            for (const divData of Object.values(BD_DATA)) {
+                divData.districts.forEach(d => selectedDistricts.add(d.id));
+            }
+            updateStats();
+        });
+
+        document.getElementById('btn-clear-all').addEventListener('click', () => {
+            selectedDistricts.clear();
+            updateStats();
+        });
+
+        // Search Filter Event
+        document.getElementById('district-search').addEventListener('input', (e) => {
+            const query = e.target.value.trim().toLowerCase();
+            const pills = document.querySelectorAll('.district-pill');
+
+            pills.forEach(pill => {
+                const text = pill.innerText.toLowerCase();
+                if (text.includes(query)) {
+                    pill.style.display = 'inline-block';
+                } else {
+                    pill.style.display = 'none';
+                }
+            });
+        });
+
+        // Profile Customization Event Listeners
+        document.getElementById('card-title-input').addEventListener('input', (e) => {
+            document.getElementById('card-display-title').innerText = e.target.value || "Hirock's Footprints";
+        });
+
+        document.getElementById('profile-upload').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    document.getElementById('card-user-img').src = e.target.result;
+                }
+                reader.readAsDataURL(file);
+            }
+        });
+
+        function downloadCard(format) {
+            const cardElem = document.getElementById('export-card');
+            
+            html2canvas(cardElem, {
+                scale: 3,
+                useCORS: true,
+                backgroundColor: '#fbf9f4'
+            }).then(canvas => {
+                const link = document.createElement('a');
+                link.download = `hirock-footprints-travel-map.${format}`;
+                link.href = canvas.toDataURL(`image/${format === 'jpg' ? 'jpeg' : 'png'}`, 0.98);
+                link.click();
+            });
+        }
+
+        function downloadPDF() {
+            const cardElem = document.getElementById('export-card');
+
+            html2canvas(cardElem, {
+                scale: 2.5,
+                useCORS: true,
+                backgroundColor: '#fbf9f4'
+            }).then(canvas => {
+                const imgData = canvas.toDataURL('image/png');
+                const { jsPDF } = window.jspdf;
+                const pdf = new jsPDF('p', 'mm', 'a4');
+                
+                const imgProps = pdf.getImageProperties(imgData);
+                const pdfWidth = pdf.internal.pageSize.getWidth() - 30;
+                const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
+
+                pdf.addImage(imgData, 'PNG', 15, 15, pdfWidth, pdfHeight);
+                pdf.save('hirock-footprints-travel-map.pdf');
+            });
+        }
+
+        document.getElementById('download-png').addEventListener('click', () => downloadCard('png'));
+        document.getElementById('download-jpg').addEventListener('click', () => downloadCard('jpg'));
+        document.getElementById('download-pdf').addEventListener('click', downloadPDF);
+
+        window.onload = function() {
+            renderDivisionControls();
+            renderSvgMap();
+            updateStats();
+        };
+    </script>
+</body>
+</html>
